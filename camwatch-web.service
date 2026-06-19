@@ -1,0 +1,16 @@
+[Unit]
+Description=CamWatch web interface
+After=network.target
+
+[Service]
+Type=simple
+User=ianrose
+WorkingDirectory=/home/ianrose/camwatch
+ExecStart=/home/ianrose/camwatch/.venv/bin/python web.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

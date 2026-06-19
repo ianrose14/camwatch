@@ -1,0 +1,18 @@
+[Unit]
+Description=CamWatch device monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ianrose
+WorkingDirectory=/home/ianrose/camwatch
+ExecStart=/home/ianrose/camwatch/.venv/bin/python monitor.py
+Restart=on-failure
+# Wait before restarting — camera or network may not be ready yet
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

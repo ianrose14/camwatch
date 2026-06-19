@@ -1,0 +1,21 @@
+{
+  "zones": [
+    {"id": "top_left",     "label": "Phone 1"},
+    {"id": "top_right",    "label": "Laptop 1"},
+    {"id": "bottom_left",  "label": "Phone 2"},
+    {"id": "bottom_right", "label": "Laptop 2"}
+  ],
+  "detection": {
+    "brightness_threshold": 200,
+    "dark_threshold": 200,
+    "min_dark_fraction": 0.08,
+    "zone_inset": 0.08
+  },
+  "monitor": {
+    "poll_interval_seconds": 30,
+    "db_path": "camwatch.db",
+    "snapshots_dir": "snapshots",
+    "max_snapshots": 50,
+    "web_port": 8765
+  }
+}
