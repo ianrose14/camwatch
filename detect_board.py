@@ -27,9 +27,9 @@ def find_board_quad(frame: np.ndarray, brightness_thresh: int = 200) -> np.ndarr
     # Threshold: keep only very bright pixels (the white board)
     _, mask = cv2.threshold(gray, brightness_thresh, 255, cv2.THRESH_BINARY)
 
-    # Clean up noise
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    # Small open removes noise; no close — convex hull bridges device holes,
+    # and close would merge nearby cable blobs into the board contour.
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
 
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -44,10 +44,14 @@ def find_board_quad(frame: np.ndarray, brightness_thresh: int = 200) -> np.ndarr
         print(f"Largest contour too small ({area:.0f}px, {100*area/frame_area:.1f}% of frame)", file=sys.stderr)
         return None
 
+    # Convex hull spans across dark devices sitting on the board so the
+    # polygon approximation sees the true outer boundary, not a C-shape.
+    hull = cv2.convexHull(largest)
+
     # Approximate to a polygon; keep loosening epsilon until we get 4 sides
-    peri = cv2.arcLength(largest, True)
+    peri = cv2.arcLength(hull, True)
     for eps_factor in [0.02, 0.04, 0.06, 0.08, 0.10]:
-        approx = cv2.approxPolyDP(largest, eps_factor * peri, True)
+        approx = cv2.approxPolyDP(hull, eps_factor * peri, True)
         if len(approx) == 4:
             break
     else:

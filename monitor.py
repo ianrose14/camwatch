@@ -34,18 +34,6 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-def detect_board_at_startup(rtsp_url: str, config: dict) -> np.ndarray:
-    """Grab a frame and detect the board quad; exits if detection fails."""
-    brightness = config["detection"].get("brightness_threshold", 200)
-    log.info("Detecting board position from live frame...")
-    frame = grab_frame(rtsp_url)
-    quad = find_board_quad(frame, brightness_thresh=brightness)
-    if quad is None:
-        log.error("Board not detected in startup frame — check camera angle and lighting")
-        sys.exit(1)
-    log.info("Board detected: TL=%s TR=%s BR=%s BL=%s", *quad)
-    return quad
-
 
 def save_snapshot(frame: np.ndarray, results, zone_id: str,
                   snapshots_dir: Path, ts: datetime, config: dict) -> str:
@@ -69,10 +57,10 @@ def prune_snapshots(snapshots_dir: Path, max_count: int) -> None:
         log.debug("Pruned snapshot %s", old.name)
 
 
-def poll_once(rtsp_url: str, zones, config: dict, db_path: str,
+def poll_once(rtsp_url: str, config: dict, db_path: str,
               snapshots_dir: Path, known_state: dict[str, str]) -> dict[str, str]:
     """
-    Grab a frame, check zones, log any state changes.
+    Grab a frame, detect board, check zones, log any state changes.
     Returns updated known_state (unchanged on camera error).
     """
     try:
@@ -80,6 +68,14 @@ def poll_once(rtsp_url: str, zones, config: dict, db_path: str,
     except Exception as e:
         log.warning("Camera grab failed, skipping poll: %s", e)
         return known_state
+
+    brightness = config["detection"].get("brightness_threshold", 200)
+    quad = find_board_quad(frame, brightness_thresh=brightness)
+    if quad is None:
+        log.warning("Board not detected this poll, skipping")
+        return known_state
+    config["_board_quad"] = quad
+    zones = zones_from_quad(quad, config)
 
     results = check_all_zones(frame, zones, config)
     now = datetime.now(timezone.utc)
@@ -119,18 +115,15 @@ def main():
     rtsp_url = config.get("rtsp_url", RTSP_URL)
 
     init_db(db_path)
-    quad = detect_board_at_startup(rtsp_url, config)
-    config["_board_quad"] = quad  # stash for snapshot annotations
-    zones = zones_from_quad(quad, config)
 
-    log.info("camwatch monitor starting — %d zones, polling every %ds", len(zones), poll_interval)
+    log.info("camwatch monitor starting — polling every %ds", poll_interval)
 
     # Seed known_state from DB so restarts don't re-log unchanged state
     known_state = get_current_state(db_path)
     log.info("Restored state from DB: %s", known_state or "(empty — first run)")
 
     while True:
-        known_state = poll_once(rtsp_url, zones, config, db_path, snapshots_dir, known_state)
+        known_state = poll_once(rtsp_url, config, db_path, snapshots_dir, known_state)
         time.sleep(poll_interval)
 
 
