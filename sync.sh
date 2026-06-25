@@ -4,4 +4,11 @@ set -e
 USER=${CAMWATCH_USER:-$(whoami)}
 HOST=${CAMWATCH_HOST:-pidork.local}
 
-rsync -av --exclude='.git' --exclude='camwatch.db' --exclude='snapshots/' ./ "${USER}@${HOST}:~/camwatch/"
+rsync -av \
+  --include='*.py' \
+  --include='*.sh' \
+  --include='*.service' \
+  --include='*.json' \
+  --include='requirements.txt' \
+  --exclude='*' \
+  ./ "${USER}@${HOST}:~/camwatch/"
